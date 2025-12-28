@@ -38,11 +38,14 @@ if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 // --------------------
 const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, UPLOADS_DIR),
-    filename: (req, file, cb) => cb(null, file.originalname), // initial save
+    filename: (req, file, cb) => cb(null, file.originalname),
+});
+
+const upload = multer({
+    storage,
     limits: { fileSize: 50 * 1024 * 1024 } // 50 MB
 });
 
-const upload = multer({ storage });
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
