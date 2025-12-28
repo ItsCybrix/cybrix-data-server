@@ -94,8 +94,11 @@ app.post('/upload', upload.single('file'), (req, res) => {
                             return res.status(500).send("Database error: " + err2);
                         }
 
-                        const redirectUrl = origin_url || "/";
-                        res.redirect(redirectUrl);
+                        if(process.env.ENVIRONMENT == "DEV"){
+                        res.redirect('http://127.0.0.1:5050/admin/files');
+                        }else{
+                        res.redirect('https://cybrixnova.com/admin/files');
+                        }
                     }
                 );
             });
@@ -110,7 +113,7 @@ app.post('/upload', upload.single('file'), (req, res) => {
 // --------------------
 // Serve uploaded files
 // --------------------
-app.get('/files/:id', (req, res) => {
+app.get('/file/:id', (req, res) => {
     const fileUUID = req.params.id;
 
     db.query("SELECT * FROM files WHERE UUID = ?", [fileUUID], (err, files) => {
@@ -127,6 +130,40 @@ app.get('/files/:id', (req, res) => {
         res.sendFile(path.resolve(file.data_path));
     });
 });
+
+app.post('/delete/:ID', (req, res)=>{
+        db.query("SELECT * FROM users WHERE sessionToken = ?", [req.body.session_token], (err, users) => {
+            if (err) {
+                console.error("DB error:", err); // <-- log DB errors
+                return res.status(500).send("Server error: " + err);
+            }
+
+            if (!users.length) return res.status(403).send("Invalid session token");
+
+            const user = users[0];
+            if (!["owner","admin"].includes(user.level.toLowerCase())) {
+                return res.status(403).send("You do not have permission to delete files");
+            }
+                            db.query(
+                    "DELETE FROM files WHERE ID=?",
+                    [req.params.ID],
+                    (err2) => {
+                        if (err2) {
+                            console.error("DB insert error:", err2); // <-- log DB insert errors
+                            return res.status(500).send("Database error: " + err2);
+                        }
+
+
+                        if(process.env.ENVIRONMENT == "DEV"){
+                        res.redirect('http://127.0.0.1:5050/admin/files');
+                        }else{
+                        res.redirect('https://cybrixnova.com/admin/files');
+                        }
+
+                    }
+                );
+            });
+})
 
 // --------------------
 // Start server
