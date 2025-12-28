@@ -56,46 +56,56 @@ const upload = multer({
 // Upload endpoint
 // --------------------
 app.post('/upload', upload.single('file'), (req, res) => {
-    const { session_token, uploader, sharekey, visibility, origin_url } = req.body;
+    try {
+        const { session_token, uploader, sharekey, visibility, origin_url } = req.body;
 
-    if (!req.file) return res.status(400).send("No file uploaded!");
+        if (!req.file) return res.status(400).send("No file uploaded!");
 
-    // Validate user session
-    db.query("SELECT * FROM users WHERE sessionToken = ?", [session_token], (err, users) => {
-        if (err) return res.status(500).send("Server error: " + err);
-        if (!users.length) return res.status(403).send("Invalid session token");
+        db.query("SELECT * FROM users WHERE sessionToken = ?", [session_token], (err, users) => {
+            if (err) {
+                console.error("DB error:", err); // <-- log DB errors
+                return res.status(500).send("Server error: " + err);
+            }
 
-        const user = users[0];
+            if (!users.length) return res.status(403).send("Invalid session token");
 
-        if (!["owner","admin"].includes(user.level.toLowerCase())) {
-            return res.status(403).send("You do not have permission to upload files");
-        }
+            const user = users[0];
+            if (!["owner","admin"].includes(user.level.toLowerCase())) {
+                return res.status(403).send("You do not have permission to upload files");
+            }
 
-        // Generate UUID filename
-        const fileUUID = uuidv4();
-        const ext = path.extname(req.file.originalname);
-        const newFilename = fileUUID + ext;
-        const newPath = path.join(UPLOADS_DIR, newFilename);
+            const fileUUID = uuidv4();
+            const ext = path.extname(req.file.originalname);
+            const newFilename = fileUUID + ext;
+            const newPath = path.join(UPLOADS_DIR, newFilename);
 
-        // Move uploaded file to UUID filename
-        fs.rename(req.file.path, newPath, (err) => {
-            if (err) return res.status(500).send("Error saving file: " + err);
-
-            // Insert metadata into DB
-            db.query(
-                "INSERT INTO files (UUID, filename, uploader, data_path, sharekey, visibility) VALUES (?, ?, ?, ?, ?, ?)",
-                [fileUUID, req.file.originalname, uploader, newPath, sharekey, visibility],
-                (err2) => {
-                    if (err2) return res.status(500).send("Database error: " + err2);
-
-                    // Redirect or send success
-                    const redirectUrl = origin_url || "/";
-                    res.redirect(redirectUrl);
+            fs.rename(req.file.path, newPath, (err) => {
+                if (err) {
+                    console.error("File rename error:", err); // <-- log filesystem errors
+                    return res.status(500).send("Error saving file: " + err);
                 }
-            );
+
+                db.query(
+                    "INSERT INTO files (UUID, filename, uploader, data_path, sharekey, visibility) VALUES (?, ?, ?, ?, ?, ?)",
+                    [fileUUID, req.file.originalname, uploader, newPath, sharekey, visibility],
+                    (err2) => {
+                        if (err2) {
+                            console.error("DB insert error:", err2); // <-- log DB insert errors
+                            return res.status(500).send("Database error: " + err2);
+                        }
+
+                        const redirectUrl = origin_url || "/";
+                        res.redirect(redirectUrl);
+                    }
+                );
+            });
         });
-    });
+    } catch (err) {
+        console.error("Unexpected error:", err); // <-- catch-all for synchronous errors
+        res.status(500).send("Unexpected server error: " + err);
+    }
 });
+
 
 // --------------------
 // Serve uploaded files
