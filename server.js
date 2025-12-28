@@ -3,11 +3,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const dotenv = require('dotenv').config();
-let uuidv4;
-(async () => {
-    const uuid = await import('uuid');
-    uuidv4 = uuid.v4;
-})();
+const { v4: uuidv4 } = require('uuid');
+
 
 
 const app = express();
