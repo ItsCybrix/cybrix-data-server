@@ -86,8 +86,8 @@ app.post('/upload', upload.single('file'), (req, res) => {
                 }
 
                 db.query(
-                    "INSERT INTO files (UUID, filename, uploader, data_path, sharekey, visibility) VALUES (?, ?, ?, ?, ?, ?)",
-                    [fileUUID, req.file.originalname, uploader, newPath, sharekey, visibility],
+                    "INSERT INTO files (UUID, filename, uploader, data_path, sharekey, visibility, description) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    [fileUUID, req.file.originalname, uploader, newPath, sharekey, visibility, req.body.description],
                     (err2) => {
                         if (err2) {
                             console.error("DB insert error:", err2); // <-- log DB insert errors
