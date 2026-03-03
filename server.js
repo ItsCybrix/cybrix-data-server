@@ -51,6 +51,11 @@ const upload = multer({
 // Routes
 // --------------------
 
+// Health check
+app.get('/', (req, res) => {
+    res.send("File server is healthy!");
+});
+
 
 // --------------------
 // Upload endpoint
