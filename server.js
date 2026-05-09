@@ -114,6 +114,64 @@ app.post('/upload', upload.single('file'), (req, res) => {
     }
 });
 
+app.post('/sharexup', upload.single('file'), (req, res) => {
+    try {
+        const { key, uploader, sharekey, visibility, origin_url } = req.body;
+
+        // Optional ShareX auth key check
+        if (key !== process.env.SHAREX_KEY) {
+            return res.status(403).send("Invalid upload key");
+        }
+
+        if (!req.file) {
+            return res.status(400).send("No file uploaded!");
+        }
+
+        const fileUUID = uuidv4();
+        const ext = path.extname(req.file.originalname);
+        const newFilename = fileUUID + ext;
+        const newPath = path.join(UPLOADS_DIR, newFilename);
+
+        fs.rename(req.file.path, newPath, (err) => {
+            if (err) {
+                console.error("File rename error:", err);
+                return res.status(500).send("Error saving file: " + err);
+            }
+
+            db.query(
+                "INSERT INTO files (UUID, filename, uploader, data_path, sharekey, visibility, description) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [
+                    fileUUID,
+                    req.file.originalname,
+                    uploader,
+                    newPath,
+                    sharekey,
+                    visibility,
+                    req.body.description
+                ],
+                (err2) => {
+                    if (err2) {
+                        console.error("DB insert error:", err2);
+                        return res.status(500).send("Database error: " + err2);
+                    }
+
+                    // Return direct file URL for ShareX
+                    const baseUrl =
+                        process.env.ENVIRONMENT === "DEV"
+                            ? "http://127.0.0.1:5055"
+                            : "https://s.cybrixnova.com";
+
+                    res.send(`${baseUrl}/file/${fileUUID}`);
+                }
+            );
+        });
+
+    } catch (err) {
+        console.error("Unexpected error:", err);
+        res.status(500).send("Unexpected server error: " + err);
+    }
+});
+
 
 // --------------------
 // Serve uploaded files
